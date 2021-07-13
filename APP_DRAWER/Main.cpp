@@ -1,78 +1,15 @@
 #define OLC_PGE_APPLICATION
 //#include "olcPixelGameEngine.h"
 #include "olcPGEX_UI.h"
+#include "olcPixelGameEngine.h"
+#include "olcPGEX_PopUp.h"
+#include <rapidjson/document.h>
+#include <rapidjson/prettywriter.h>
+#include <rapidjson/writer.h>
+#include <rapidjson/stringbuffer.h>
 #include <list>
+#include <fstream>
 
-/*
-namespace kharsair
-{
-	struct Node;
-	struct Edge;
-
-	struct EditorPanel
-	{
-
-		olc::vi2d pos = { 0, 0 };
-		olc::vi2d size = { 0, 0 };
-
-		static int screenWidth, screenHeight;
-
-		bool object_is_edge;
-
-		olc::UI_CONTAINER gui;
-
-
-	void draw_self(olc::PixelGameEngine* pge, float fElapsedTime) = 0;
-
-	};
-
-	struct StateEditingPanel : public EditorPanel
-	{
-		Node* parent;
-		StateEditingPanel(Node* parent) : parent(parent)
-		{
-			pos = { (int) (screenWidth * 0.75f), 0 };
-			size = { screenWidth - pos.x, screenHeight };
-			gui.addTextField((int) (screenWidth * 0.75f) + 10, 50, 20);
-
-		}
-
-		void draw_self(olc::PixelGameEngine* pge, float fElapsedTime) override
-		{
-			pos = { (int) (screenWidth * 0.75f), 0 };
-			size = { screenWidth - pos.x, screenHeight };
-			pge->FillRect(pos, size, olc::VERY_DARK_GREEN);
-			pge->DrawStringProp({ pos.x + 10, pos.y + 20 }, "STATE NAME", olc::DARK_YELLOW, 2U);
-			//gui.Update(fElapsedTime);
-			gui.drawUIObjects();
-		}
-	};
-
-
-	struct TransitionEditingPanel : public EditorPanel
-	{
-		Edge* parent;
-		TransitionEditingPanel(Edge* parent) : parent(parent)
-		{
-			pos = { (int) (screenWidth * 0.75f), 0 };
-			size = { screenWidth - pos.x, screenHeight };
-		}
-		void draw_self(olc::PixelGameEngine* pge, float fElapsedTime) override
-		{
-			pos = { (int) (screenWidth * 0.75f), 0 };
-			size = { screenWidth - pos.x, screenHeight };
-			pge->FillRect(pos, size, olc::VERY_DARK_GREEN);
-			pge->DrawStringProp({ pos.x + 10, pos.y + 20 }, "TRANSITION NAME", olc::DARK_YELLOW, 2U);
-			//gui.Update(fElapsedTime);
-			gui.drawUIObjects();
-		}
-	};
-
-	int EditorPanel::screenHeight = 0;
-	int EditorPanel::screenWidth = 0;
-
-}
-*/
 
 namespace kharsair
 {
@@ -126,8 +63,6 @@ namespace kharsair
 			interaction_points.reserve(max_interaction_point);
 	
 		}
-
-
 
 
 		//info as app component
@@ -290,24 +225,11 @@ namespace kharsair
 
 			}
 
+			pge->DrawString({ ex + 5, ey - 15 }, transition_name, olc::WHITE, 2U);
+			pge->DrawString({ ex + 5, ey + 15 }, "Start State: " + start->state_name, olc::WHITE);
+			pge->DrawString({ ex + 5, ey + 25 }, "END State: " + end->state_name, olc::WHITE);
 
 	
-
-			/*
-			olc::vf2d dxdy = { (float) (start->center.x - end->center.x ), (float) (start->center.y - end->center.y) };
-			pge->DrawCircle(dxdy * 0.5f, 2);
-
-			float tx = dxdy.x, ty = dxdy.y;
-
-			olc::vf2d p = { tx * 0.5f, ty * 0.5f };
-			olc::vf2d end1 = { p.x + 0.1f*(tx * cos + ty * (-sin)), p.y + 0.1f * (tx * sin + ty * cos) };
-			olc::vf2d end2 = { p.x + 0.1f * (tx * cos + ty * sin), p.y + 0.1f * (tx * -sin + ty * cos) };
-
-		
-
-			pge->DrawLine(p, end1, olc::MAGENTA);
-			pge->DrawLine(p, end2, olc::MAGENTA);*/
-
 			DrawInteractionPoint(pge);
 
 		}
@@ -376,7 +298,6 @@ private:
 
 	olc::UI_CONTAINER gui;
 
-
 	kharsair::Node* n;
 	kharsair::Edge* e;
 
@@ -413,6 +334,8 @@ public:
 	bool OnUserCreate() override 
 	{
 		obj_being_edited = nullptr;
+
+		gui.addTextField(10, 70, 20);
 		
 
 
@@ -514,6 +437,7 @@ quit:
 				{
 					list_of_states.push_back(n);
 				}
+				n = nullptr;
 				
 			}
 
@@ -671,8 +595,6 @@ stop_check_1:
 		kharsair::Object::worldScale = scale;
 
 
-
-
 		for (auto& e_e : list_of_transition)
 		{
 			e_e->draw_self(this);
@@ -685,7 +607,6 @@ stop_check_1:
 		
 		}
 
-		
 
 		if (n != nullptr)
 		{
@@ -701,27 +622,122 @@ stop_check_1:
 
 		if (obj_being_edited != nullptr)
 		{
-
+			if (obj_being_edited->getObjectID())
+			{
+				DrawString(10, 30, "Editing: " + ((kharsair::Edge*) obj_being_edited)->transition_name);
+			}
+			else
+			{
+				DrawString(10, 30, "Editing: " + ((kharsair::Node*) obj_being_edited)->state_name);
+			}
+			
 			if (GetKey(olc::Key::ENTER).bPressed)
 			{
 				if (obj_being_edited->getObjectID()) // is edge
 				{
-
+					std::string s_n = gui.getTxtFieldStr(0);
+					((kharsair::Edge*) obj_being_edited)->transition_name = s_n;
 				}
 				else
 				{
-					kharsair::Node* temp = (kharsair::Node*) obj_being_edited;
+
 					std::string s_n = gui.getTxtFieldStr(0);
-					temp->state_name = s_n;
+					((kharsair::Node*) obj_being_edited)->state_name = s_n;
+
 				}
 
 				obj_being_edited = nullptr;
 
 			}
 
-		}
+		/*	if (GetKey(olc::Key::ENTER).bPressed)
+			{
+				obj_being_edited = nullptr;
 
+			}*/
+				
+
+		}
+		
 		gui.drawUIObjects();
+
+		if (GetKey(olc::Key::F).bReleased)
+		{
+			
+			rapidjson::StringBuffer sb;
+			rapidjson::Writer<rapidjson::StringBuffer> writer(sb);
+
+			
+			writer.StartObject();
+			{
+				writer.Key("States");
+				writer.StartArray();
+				{
+					for (auto& node : list_of_states)
+						writer.String(node->state_name.c_str());
+				}
+				writer.EndArray();
+
+
+				writer.Key("Transitions");
+				writer.StartArray();
+				{
+					for (auto& edge : list_of_transition)
+					{
+						writer.StartObject();
+						{
+							writer.Key("name");         writer.String(edge->transition_name.c_str());
+							writer.Key("StartState");   writer.String(edge->start->state_name.c_str());
+							writer.Key("EndState");     writer.String(edge->end->state_name.c_str());
+
+							writer.Key("Guards");
+							writer.StartArray();
+							{
+								for (auto& g : edge->guard)
+								{
+									writer.StartObject();
+									writer.EndObject();
+
+								}
+							}
+							writer.EndArray();
+
+							writer.Key("MaintenanceGoals");
+							writer.StartArray();
+							{
+								for (auto& m : edge->maintenance_goal)
+								{
+									writer.StartObject();
+									writer.EndObject();
+								}
+							}
+							writer.EndArray();
+
+							writer.Key("AchievementGoals");
+							writer.StartArray();
+							{
+								for (auto& a : edge->achievement_goal)
+								{
+									writer.StartObject();
+									writer.EndObject();
+								}
+							}
+							writer.EndArray();
+						}
+						writer.EndObject();
+					}
+				}
+				writer.EndArray();
+			}
+			writer.EndObject();
+
+			std::cout << sb.GetString() << std::endl;
+			
+			
+			
+			
+
+		}
 
 		
 		return true;

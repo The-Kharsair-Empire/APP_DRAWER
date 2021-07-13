@@ -141,6 +141,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="olcPGEX_PopUp.h" />
     <ClInclude Include="olcPGEX_UI.h" />
     <ClInclude Include="olcPixelGameEngine.h" />
   </ItemGroup>
